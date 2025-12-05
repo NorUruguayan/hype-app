@@ -1,12 +1,12 @@
 // app/account/delete/route.ts
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'  // FIXED
-import { createAdminClient } from '@/lib/supabase/admin'    // FIXED
+import { getServerClient } from '@/lib/supabase/server'
+import { getAdminClient } from '@/lib/supabase/admin'
 
 export async function POST() {
   try {
-    const supabase = createServerClient()
-    const admin = createAdminClient()
+    const supabase = getServerClient()
+    const admin = getAdminClient()  // Fixed: Removed 'await' since it's synchronous
 
     // Get the currently logged-in user
     const {

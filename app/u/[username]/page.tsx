@@ -1,73 +1,115 @@
-import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import ProfileHeaderCard from '@/components/ProfileHeaderCard'
-import InviteFriendsButton from '@/components/InviteFriendsButton'
+// app/u/[username]/page.tsx
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getServerClient } from "@/lib/supabase/server";
+import ProfileHeaderGlobal from "@/components/ProfileHeaderGlobal";
 
-export default async function ProfilePage({
-  params,
-}: {
-  params: Promise<{ username: string }>
-}) {
-  const { username } = await params
-  const handle = username.replace('@', '')
-  const supabase = await createClient()
+type PageProps = {
+  params: Promise<{ username: string }>; // Next 15 dynamic params are async
+};
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('user_id, username, display_name, bio')
-    .eq('username', handle)
-    .maybeSingle()
+export const dynamic = "force-dynamic";
 
-  if (!profile) notFound()
-  const uid = profile.user_id
+export default async function UserProfilePage({ params }: PageProps) {
+  // 0) username
+  const { username } = await params;
+  const handle = (username || "").toLowerCase();
 
-  const [{ count: hypeCount }, { count: followersCount }, { count: followingCount }] =
-    await Promise.all([
-      supabase.from('hypes').select('id', { count: 'exact', head: true }).eq('to_user_id', uid),
-      supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('followee_id', uid),
-      supabase.from('follows').select('followee_id', { count: 'exact', head: true }).eq('follower_id', uid),
-    ])
+  const supabase = await getServerClient();
+
+  // 1) profile by username
+  const { data: profile, error: pErr } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("username", handle)
+    .maybeSingle();
+
+  if (pErr || !profile) notFound();
+
+  // 2) recent hypes *for this profile* (received)
+  // Adjust the column name if yours differs; many schemas use profile_user_id or user_id
+  const { data: itemsData = [] } = await supabase
+    .from("hypes")
+    .select("id, content, created_at")
+    .eq("profile_user_id", profile.user_id) // <-- change to .eq("user_id", profile.user_id) if that's your column
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const items = itemsData ?? [];
 
   return (
-    <div className="min-h-screen bg-[color:var(--brand-dark)]">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <ProfileHeaderCard
-          userId={uid}
-          username={profile.username}
-          displayName={profile.display_name || profile.username}
-          bio={profile.bio || ''}
-          hypeCount={hypeCount ?? 0}
-          followersCount={followersCount ?? 0}
-          followingCount={followingCount ?? 0}
-        />
+    <div className="app-container py-10 space-y-8">
+      {/* Global header with avatar/banner/username */}
+      <ProfileHeaderGlobal username={handle} />
 
-        <section className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">⚡⚡⚡ Hype Collection</h2>
+      {/* Action row */}
+      <section className="ui-card p-4 flex items-center justify-between gap-3">
+        <div className="text-sm opacity-80">
+          <span className="font-semibold">@{handle}</span> •{" "}
+          <span>
+            {items.length === 0
+              ? "No hype yet — be the first!"
+              : `${items.length} recent ${items.length === 1 ? "hype" : "hypes"}`}
+          </span>
+        </div>
 
-          {(hypeCount ?? 0) === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-white/80">
-              <div className="mb-3 font-semibold">No hypes yet</div>
-              <div className="flex gap-2 flex-wrap">
-                {/* Invite friends (client component) */}
-                <InviteFriendsButton path={`/@${profile.username}`} />
+        <div className="flex gap-2">
+          <Link
+            href="/settings"
+            className="rounded-lg px-3 py-2 bg-neutral-800 hover:bg-neutral-700 transition text-sm"
+          >
+            Edit Profile
+          </Link>
+          <Link
+            href="/invite"
+            className="rounded-lg px-3 py-2 bg-amber-500 hover:bg-amber-400 transition text-sm font-medium text-black"
+          >
+            Invite Friends
+          </Link>
+        </div>
+      </section>
 
-                {/* Discover people (styled like Invite friends) */}
-                <a
-                  href="/demo"
-                  className="rounded-full px-4 py-2 font-semibold text-white shadow-brand hover:opacity-90 active:opacity-95 transition
-                             bg-gradient-to-r from-[#9E5BFF] to-[#FF5BB4]"
-                >
-                  Discover people
-                </a>
-              </div>
-            </div>
-          ) : (
-            <div className="text-white/70">
-              {/* TODO: render your HypeCollection here */}
-            </div>
-          )}
-        </section>
+      {/* Personal feed */}
+      <section className="ui-card p-5">
+        <h2 className="font-semibold mb-4 text-lg">Recent Hype</h2>
+
+        {items.length === 0 ? (
+          <EmptyState handle={handle} />
+        ) : (
+          <ul className="space-y-3">
+            {items.map((item: any) => (
+              <li key={item.id} className="rounded-lg bg-neutral-900/40 p-4">
+                <div className="text-xs opacity-70 mb-1">
+                  {new Date(item.created_at).toLocaleString()}
+                </div>
+                <div className="leading-relaxed whitespace-pre-wrap">{item.content}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function EmptyState({ handle }: { handle: string }) {
+  return (
+    <div className="rounded-lg bg-neutral-900/40 p-6 text-center">
+      <p className="mb-3">No hype has been posted for @{handle} yet.</p>
+      <div className="flex items-center justify-center gap-2">
+        <Link
+          href="/invite"
+          className="rounded-lg px-3 py-2 bg-amber-500 hover:bg-amber-400 transition text-sm font-medium text-black"
+        >
+          Invite friends to hype you
+        </Link>
+        <Link
+          href="/share"
+          className="rounded-lg px-3 py-2 bg-neutral-800 hover:bg-neutral-700 transition text-sm"
+        >
+          Share your page
+        </Link>
       </div>
     </div>
-  )
+  );
 }

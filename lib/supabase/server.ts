@@ -1,37 +1,33 @@
 // FILE: lib/supabase/server.ts
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 
-export async function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !anon) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
-  }
-
-  // Next.js 15: cookies() is async in Server Components
+/**
+ * Next.js 15: cookies() is async, so await it.
+ */
+export async function getServerClient() {
   const cookieStore = await cookies()
 
-  return createServerClient(url, anon, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        // If you later need auth writes on the server, implement set/remove.
       },
-      set(name: string, value: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value, ...options })
-        } catch {
-          // ignore in Server Components
-        }
-      },
-      remove(name: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value: '', ...options })
-        } catch {
-          // ignore in Server Components
-        }
-      },
-    },
-  })
+    }
+  )
+}
+
+/**
+ * Convenience: get the current authenticated user on the server.
+ * Lets pages keep importing { getServerUser } as they did before.
+ */
+export async function getServerUser() {
+  const supabase = await getServerClient()
+  const { data } = await supabase.auth.getUser()
+  return data.user ?? null
 }

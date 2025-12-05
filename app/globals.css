@@ -1,48 +1,226 @@
-/* FILE: app/globals.css */
+/* app/globals.css */
 @import "tailwindcss";
 
-/* Brand variables */
-:root {
-  --brand-dark: #07142F;
-  --brand-blue: #3FA1FF;
-  --brand-purple: #8E59FF;
+/* ===========================
+   Base tokens & app baseline
+   =========================== */
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* Brand (default / fallback) */
+    --brand-1: #ffd400;
+    --brand-2: #ffa200;
+    --brand-3: #ff4d00;
+
+    /* Youth palette (from your image) */
+    --teal-700: #0e7c86;  /* deep teal */
+    --teal-500: #1b9aaa;  /* aqua */
+    --butter:   #f9f7a1;  /* pale yellow */
+    --peach:    #ffb573;  /* peach */
+    --coral:    #e26a5c;  /* coral red */
+
+    /* Default background pair (teal-ish, brightened) */
+    --bg-top:    #0c3b3f;
+    --bg-bottom: #0e7c86;
+
+    /* Header stripes (use route-accent to tint) */
+    --stripe-a: rgba(255,255,255,0.15);
+    --stripe-b: transparent;
+  }
+
+  html, body { @apply h-full; }
+
+  body {
+    /* brighter, saturated gradient with soft vignette */
+    background:
+      radial-gradient(1000px 600px at 15% -10%, rgba(255,255,255,0.08) 0%, transparent 60%),
+      radial-gradient(1200px 700px at 85% -15%, rgba(255,255,255,0.06) 0%, transparent 60%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    @apply text-neutral-100 antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Subtle moving stripes behind header (uses --stripe-a tint) */
+  .header-stripe {
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        var(--stripe-a) 0 10px,
+        var(--stripe-b) 10px 24px
+      );
+    opacity: .35;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.6), transparent);
+  }
+
+  *:focus-visible { @apply outline-none ring-2 ring-violet-400/60; }
+
+  .app-container { @apply mx-auto w-full max-w-6xl px-4; }
+
+  .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
 }
 
-/* Base */
-html, body { height: 100%; }
-
-body {
-  background-color: var(--brand-dark);
-  color: #ffffff;               /* was @apply text-white */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ===========================
+   Route themes via data-page
+   =========================== */
+/* TEAL (Feed / Discover) */
+body[data-page="teal"] {
+  --bg-top:    color-mix(in oklab, var(--teal-700) 70%, #000 30%);
+  --bg-bottom: var(--teal-500);
+  --brand-1:   var(--teal-500);
+  --brand-2:   var(--butter);
+  --brand-3:   var(--peach);
+  --stripe-a:  color-mix(in oklab, var(--teal-500) 40%, #fff 20%);
 }
 
-/* Utilities (custom) */
-.brand-gradient {
-  background-image: linear-gradient(90deg, var(--brand-blue), var(--brand-purple));
+/* SUNRISE (Login) */
+body[data-page="sunrise"] {
+  --bg-top:    var(--peach);
+  --bg-bottom: var(--butter);
+  --brand-1:   #ffe37a;
+  --brand-2:   var(--peach);
+  --brand-3:   var(--coral);
+  --stripe-a:  color-mix(in oklab, var(--butter) 60%, #000 15%);
 }
 
-.text-gradient {
-  background: linear-gradient(90deg, var(--brand-blue), var(--brand-purple));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-/* --- HYPE demo CTA pulse --- */
-@keyframes hype-pulse {
-  0%   { transform: translateZ(0) scale(1); box-shadow: 0 0 0 0 rgba(123, 97, 255, 0.45); }
-  70%  { transform: translateZ(0) scale(1.015); box-shadow: 0 0 40px 12px rgba(123, 97, 255, 0.20); }
-  100% { transform: translateZ(0) scale(1); box-shadow: 0 0 0 0 rgba(123, 97, 255, 0.0); }
+/* PEACH (Daily) */
+body[data-page="peach"] {
+  --bg-top:    color-mix(in oklab, var(--peach) 70%, #0b0b0b 15%);
+  --bg-bottom: color-mix(in oklab, var(--peach) 40%, var(--coral) 35%);
+  --brand-1:   var(--peach);
+  --brand-2:   var(--butter);
+  --brand-3:   var(--coral);
+  --stripe-a:  color-mix(in oklab, var(--peach) 45%, #fff 10%);
 }
 
-.btn-pulse {
-  animation: hype-pulse 2.4s ease-in-out infinite;
-  will-change: transform, box-shadow;
+/* CORAL (Notifications) */
+body[data-page="coral"] {
+  --bg-top:    color-mix(in oklab, var(--coral) 55%, #0b0b0b 25%);
+  --bg-bottom: color-mix(in oklab, var(--coral) 25%, #150909 75%);
+  --brand-1:   var(--coral);
+  --brand-2:   var(--peach);
+  --brand-3:   var(--butter);
+  --stripe-a:  color-mix(in oklab, var(--coral) 40%, #fff 15%);
 }
-/* Demo list item pop-in */
-@keyframes demo-pop {
-  0% { transform: translateY(-6px); opacity: 0 }
-  100% { transform: translateY(0); opacity: 1 }
+
+/* SAND (Settings) – keep legible by tilting warm but darker underneath */
+body[data-page="sand"] {
+  --bg-top:    color-mix(in oklab, var(--butter) 25%, #0b0b0b 75%);
+  --bg-bottom: color-mix(in oklab, var(--peach) 35%, #0b0b0b 65%);
+  --brand-1:   var(--butter);
+  --brand-2:   var(--peach);
+  --brand-3:   var(--coral);
+  --stripe-a:  color-mix(in oklab, var(--butter) 50%, #fff 10%);
 }
-.demo-pop { animation: demo-pop .18s ease-out }
+
+/* Fallback / anything else */
+body[data-page="default"] {
+  --bg-top:    #0f1216;
+  --bg-bottom: #121a22;
+}
+
+/* ===========================
+   Components (reusable blocks)
+   =========================== */
+@layer components {
+  .ui-card {
+    @apply rounded-2xl ring-1 ring-white/10
+           bg-gradient-to-b from-black/30 to-black/50
+           backdrop-blur shadow-[0_16px_40px_rgba(0,0,0,0.35)];
+  }
+
+  .brand-gradient {
+    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 50%, var(--brand-3) 100%);
+  }
+
+  .glass {
+    background-color: rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .brand-press { @apply transition duration-150 ease-out; }
+  .brand-press:active { transform: translateY(.5px) scale(.985); filter: brightness(.98); }
+
+  .ui-ripple {
+    pointer-events: none;
+    position: absolute;
+    border-radius: 9999px;
+    transform: scale(0);
+    background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 60%);
+    animation: ui-ripple .6s ease-out forwards;
+  }
+
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition focus:outline-none; }
+
+  .btn-cta {
+    @apply inline-flex items-center justify-center rounded-xl px-3.5 py-2
+           text-sm font-semibold text-black transition-all;
+    background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 55%, var(--brand-3) 100%);
+    box-shadow: 0 10px 28px color-mix(in oklab, var(--brand-2) 45%, #000 55%);
+  }
+  .btn-cta:hover  { filter: brightness(1.06); transform: translateY(-1px); }
+  .btn-cta:active { transform: translateY(0); }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm
+           text-white/90 bg-white/5 ring-1 ring-white/12 transition;
+  }
+  .btn-ghost:hover { @apply bg-white/10; }
+
+  .menu-surface {
+    @apply rounded-xl bg-black/60 ring-1 ring-white/10
+           backdrop-blur p-2 shadow-[0_12px_32px_rgba(0,0,0,0.55)];
+  }
+  .menu-item { @apply block w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-white/10; }
+  .divider   { @apply h-px w-full bg-white/10; }
+
+  .badge-daily {
+    @apply text-[10px] leading-none rounded-md px-1.5 py-0.5 font-semibold text-black ring-1 ring-white/40;
+    background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  }
+
+  .chip        { @apply rounded-full px-2 py-1 text-xs bg-white/8 ring-1 ring-white/12 hover:bg-white/12 transition; }
+  .chip-active { @apply text-black ring-white/20; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); }
+
+  .progress     { @apply h-2 w-full overflow-hidden rounded-full bg-white/12; }
+  .progress-bar {
+    @apply h-full rounded-full;
+    background: linear-gradient(90deg, var(--brand-1) 0%, var(--brand-2) 50%, var(--brand-3) 100%);
+    box-shadow: 0 0 18px color-mix(in oklab, var(--brand-2) 60%, #000 40%);
+  }
+
+  .streak-grid { @apply grid grid-cols-14 gap-[6px] p-4 rounded-xl bg-black/35 ring-1 ring-white/12; }
+  .streak-dot  { @apply h-3.5 w-3.5 rounded-[6px] bg-white/12 ring-1 ring-white/12; }
+  .streak-dot--hit { background: linear-gradient(135deg, var(--brand-1), var(--brand-2), var(--brand-3)); }
+
+  .confetti-pop { animation: confetti-pop .45s ease-out both; }
+
+  kbd { @apply rounded bg-white/10 px-1 text-[11px] font-medium; }
+
+  .notif-badge-bump { animation: notif-bump 220ms ease-out; }
+}
+
+/* ===========================
+   Utilities
+   =========================== */
+@layer utilities {
+  .rounded-pill { border-radius: 9999px; }
+  .text-shadow-lg { text-shadow: 0 2px 30px rgba(255, 174, 0, 0.25); }
+}
+
+/* ===========================
+   Keyframes
+   =========================== */
+@keyframes ui-ripple { to { transform: scale(2.5); opacity: 0; } }
+@keyframes confetti-pop {
+  0%   { transform: scale(.9);  opacity: 0; }
+  50%  { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+@keyframes notif-bump { 0% { transform: scale(.9); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }

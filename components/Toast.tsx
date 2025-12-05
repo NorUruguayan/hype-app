@@ -1,32 +1,38 @@
+// FILE: components/Toast.tsx
 'use client'
-import { createContext, useCallback, useContext, useState } from 'react'
 
-type Toast = { id: number; text: string }
-const ToastCtx = createContext<{ push: (text: string) => void } | null>(null)
+/**
+ * Minimal toast shim so code can import:
+ *   import { useToast } from '@/components/Toast'
+ *
+ * Replace this later with your real toast system (e.g., shadcn/sonner).
+ */
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  const push = useCallback((text: string) => {
-    const id = Date.now()
-    setToasts((t) => [...t, { id, text }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2200)
-  }, [])
-  return (
-    <ToastCtx.Provider value={{ push }}>
-      {children}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2">
-        {toasts.map(t => (
-          <div key={t.id} className="rounded-full bg-white/90 text-black px-4 py-2 shadow">
-            {t.text}
-          </div>
-        ))}
-      </div>
-    </ToastCtx.Provider>
-  )
+type ToastOptions = {
+  title?: string
+  description?: string
 }
 
 export function useToast() {
-  const ctx = useContext(ToastCtx)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx.push
+  return {
+    toast: ({ title, description }: ToastOptions = {}) => {
+      const message = [title, description].filter(Boolean).join(' — ')
+      // Non-blocking: log to console and optionally show alert in dev
+      console.log('[toast]', message)
+      if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+        // Quick visual feedback while developing
+        // (swap this out for a real UI lib later)
+        // eslint-disable-next-line no-alert
+        if (message) alert(message)
+      }
+    },
+  }
+}
+
+/**
+ * Some projects import the default just to mount a provider.
+ * We don’t need one for this shim, so render nothing.
+ */
+export default function ToastProvider() {
+  return null
 }

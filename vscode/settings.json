@@ -1,0 +1,27 @@
+{
+  // Disable the stock CSS validator so Tailwind can take over
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+
+  // Silence the unknown @rules warnings
+  "css.lint.unknownAtRules": "ignore",
+
+  // Make .css files use Tailwind language services
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  // Helpful suggestions in strings/JSX
+  "editor.quickSuggestions": { "strings": true },
+
+  // Explicit language mapping for Tailwind IntelliSense
+  "tailwindCSS.includeLanguages": {
+    "css": "tailwindcss",
+    "plaintext": "html",
+    "javascript": "javascript",
+    "javascriptreact": "javascript",
+    "typescript": "typescript",
+    "typescriptreact": "typescript"
+  }
+}

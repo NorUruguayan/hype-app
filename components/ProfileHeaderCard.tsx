@@ -1,105 +1,142 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useState } from 'react'
-import FollowButton from '@/components/FollowButton'
-import FollowListModal from '@/components/FollowListModal'
+import { useEffect, useMemo, useState } from 'react';
+import { getClient } from '@/lib/supabase/client';
+import FollowButton from './FollowButton';
+
+type Profile = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+};
+
+type Props = {
+  profile: Profile;
+  viewerId: string | null;
+  initialIsFollowing: boolean;
+  followersCount?: number;
+  followingCount?: number;
+};
 
 export default function ProfileHeaderCard({
-  userId,
-  username,
-  displayName,
-  bio,
-  hypeCount,
-  followersCount,
-  followingCount,
-}: {
-  userId: string
-  username: string
-  displayName: string
-  bio: string
-  hypeCount: number
-  followersCount: number
-  followingCount: number
-}) {
-  const [showFollowers, setShowFollowers] = useState(false)
-  const [showFollowing, setShowFollowing] = useState(false)
+  profile,
+  viewerId,
+  initialIsFollowing,
+  followersCount: followersCountProp,
+  followingCount: followingCountProp,
+}: Props) {
+  const supabase = useMemo(() => getClient(), []);
+  const isOwnProfile = !!viewerId && viewerId === profile.user_id;
+
+  const [followersCount, setFollowersCount] = useState<number | null>(
+    typeof followersCountProp === 'number' ? followersCountProp : null
+  );
+  const [followingCount, setFollowingCount] = useState<number | null>(
+    typeof followingCountProp === 'number' ? followingCountProp : null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCounts() {
+      if (followersCount !== null && followingCount !== null) return;
+
+      const [followersRes, followingRes] = await Promise.all([
+        supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('followee_id', profile.user_id),
+        supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', profile.user_id),
+      ]);
+
+      if (!cancelled) {
+        setFollowersCount(followersRes.count ?? 0);
+        setFollowingCount(followingRes.count ?? 0);
+      }
+    }
+
+    loadCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.user_id, supabase, followersCount, followingCount]);
+
+  const handleFollowToggle = (nowFollowing: boolean) => {
+    setFollowersCount((n) => {
+      if (typeof n !== 'number') return n;
+      return nowFollowing ? n + 1 : Math.max(0, n - 1);
+    });
+  };
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.05] p-7 shadow-brand text-white">
-      <div className="grid grid-cols-[auto,1fr,auto] items-start gap-6">
-        <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl brand-gradient flex items-center justify-center text-white text-2xl md:text-3xl font-extrabold">
-          {(displayName?.[0] || username[0] || 'H').toUpperCase()}
-        </div>
+    <section className="ui-card p-5">
+      <div className="flex items-start gap-4">
+        <Avatar
+          src={profile.avatar_url}
+          alt={profile.display_name || profile.username || 'Avatar'}
+        />
 
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            <Link href={`/@${username}`} className="hover:underline">{displayName}</Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-semibold truncate">
+            {profile.display_name || profile.username || 'User'}
           </h1>
-          <p className="text-white/70">@{username}</p>
-          {bio && <p className="text-white/80 mt-3">{bio}</p>}
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {/* Hype up = solid gradient pill */}
-            <Link
-              href={`/@${username}#hype`}
-              className="brand-gradient text-white px-4 py-2 rounded-full font-semibold shadow-brand hover:opacity-90 active:opacity-95 transition"
-            >
-              Hype up ⚡
-            </Link>
-
-            {/* Get Hyped = brighter gradient + subtle ring */}
-            <Link
-              href={`/u/${username}/daily`}
-              className="px-4 py-2 rounded-full font-semibold text-white shadow-brand hover:opacity-90 active:opacity-95 transition
-                         bg-gradient-to-r from-[#6AA6FF] to-[#9E5BFF] ring-1 ring-white/10"
-            >
-              Get Hyped ↗
-            </Link>
-
-            <FollowButton profileUserId={userId} />
+          <div className="text-sm opacity-70 truncate">
+            {profile.username ? `@${profile.username}` : 'username not set'}
           </div>
         </div>
 
-        <div className="justify-self-end text-right space-y-2">
-          <div className="px-4 py-2 rounded-full bg-white/[0.06] border border-white/10">
-            <div className="text-xl md:text-2xl font-extrabold leading-none">{hypeCount}</div>
-            <div className="text-xs tracking-wide text-white/60">Hypes</div>
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <button
-              className="px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-right hover:bg-white/10"
-              onClick={() => setShowFollowers(true)}
-            >
-              <div className="text-sm font-bold leading-none">{followersCount}</div>
-              <div className="text-[11px] tracking-wide text-white/60">Hypers</div>
-            </button>
-            <button
-              className="px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-right hover:bg-white/10"
-              onClick={() => setShowFollowing(true)}
-            >
-              <div className="text-sm font-bold leading-none">{followingCount}</div>
-              <div className="text-[11px] tracking-wide text-white/60">Hypees</div>
-            </button>
-          </div>
-        </div>
+        {!isOwnProfile && !!viewerId && (
+          <FollowButton
+            targetId={profile.user_id}
+            initialIsFollowing={initialIsFollowing}
+            onToggle={handleFollowToggle}
+          />
+        )}
       </div>
 
-      <FollowListModal
-        userId={userId}
-        mode="followers"
-        open={showFollowers}
-        onClose={() => setShowFollowers(false)}
-        title="Hypers (followers)"
-      />
-      <FollowListModal
-        userId={userId}
-        mode="following"
-        open={showFollowing}
-        onClose={() => setShowFollowing(false)}
-        title="Hypees (following)"
-      />
+      {profile.bio && (
+        <p className="mt-4 whitespace-pre-wrap leading-relaxed opacity-90">
+          {profile.bio}
+        </p>
+      )}
+
+      <div className="mt-4 flex gap-6 text-sm">
+        <Count label="Followers" value={followersCount} />
+        <Count label="Following" value={followingCount} />
+      </div>
     </section>
-  )
+  );
+}
+
+/* helpers */
+
+function Avatar({ src, alt }: { src?: string | null; alt: string }) {
+  if (!src) {
+    return (
+      <div className="size-16 rounded-full bg-white/10 grid place-items-center text-xs opacity-70 select-none">
+        No avatar
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="size-16 rounded-full object-cover"
+    />
+  );
+}
+
+function Count({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div>
+      <div className="font-semibold">{value ?? '—'}</div>
+      <div className="opacity-70 text-xs">{label}</div>
+    </div>
+  );
 }

@@ -1,70 +1,74 @@
-'use client'
+// components/FollowButton.tsx
+"use client";
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/Toast'
+import { useState, useTransition } from "react";
 
-export default function FollowButton({ profileUserId }: { profileUserId: string }) {
-  const toast = useToast()
-  const [loading, setLoading] = useState(true)
-  const [following, setFollowing] = useState<boolean | null>(null)
-  const [me, setMe] = useState<string | null>(null)
+type ToggleResult = {
+    ok: boolean;
+    following?: boolean;
+    error?: string;
+};
 
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setMe(null); setFollowing(null); setLoading(false); return }
-      setMe(user.id)
+type Props = {
+    targetId: string;
+    initiallyFollowing: boolean;
+    action: (formData: FormData) => Promise<ToggleResult>;
+    disabled?: boolean;
+    /** When true and not following yet, label shows "Follow back" */
+    followBack?: boolean;
+    // --- ADDED PROP: The callback the parent needs ---
+    onToggle?: (nowFollowing: boolean) => void;
+};
 
-      const { data, error } = await supabase
-        .from('follows')
-        .select('follower_id')
-        .eq('follower_id', user.id)
-        .eq('followee_id', profileUserId)
-        .maybeSingle()
+export default function FollowButton({
+    targetId,
+    initiallyFollowing,
+    action,
+    disabled,
+    followBack,
+    onToggle, // --- ADDED DESTRUCTURING ---
+}: Props) {
+    const [following, setFollowing] = useState(initiallyFollowing);
+    const [isPending, startTransition] = useTransition();
 
-      if (!mounted) return
-      if (error && error.code !== 'PGRST116') console.error(error)
-      setFollowing(!!data)
-      setLoading(false)
-    })()
-    return () => { mounted = false }
-  }, [profileUserId])
+    const label = following ? "Following" : followBack ? "Follow back" : "Follow";
 
-  if (!me || me === profileUserId) return null
-  if (loading) {
-    return <button className="px-4 py-2 rounded-full border border-white/20 bg-white/5 text-white" disabled>…</button>
-  }
+    return (
+        <form
+            action={(formData) => {
+                const next = !following; // optimistic
+                
+                // --- MODIFIED: Execute the callback here ---
+                setFollowing(next);
+                onToggle?.(next); 
+                // ----------------------------------------
 
-  const toggle = async () => {
-    const supabase = await createClient()
-    if (!me) return
-    if (following) {
-      setFollowing(false)
-      toast('Unfollowed')
-      const { error } = await supabase.from('follows').delete().eq('follower_id', me).eq('followee_id', profileUserId)
-      if (error) { setFollowing(true); toast('Error unfollowing') }
-    } else {
-      setFollowing(true)
-      toast('Following')
-      const { error } = await supabase.from('follows').insert({ follower_id: me, followee_id: profileUserId })
-      if (error) { setFollowing(false); toast('Error following') }
-    }
-  }
-
-  return (
-    <button
-      onClick={toggle}
-      className={`px-4 py-2 rounded-full font-semibold border ${
-        following
-          ? 'border-white/20 bg-white/5 text-white hover:bg-white/10'
-          : 'brand-gradient text-white shadow-brand'
-      }`}
-      disabled={loading}
-    >
-      {following ? 'Following' : 'Follow'}
-    </button>
-  )
+                startTransition(async () => {
+                    formData.set("targetId", targetId);
+                    const res = await action(formData);
+                    
+                    if (!res?.ok) {
+                        setFollowing(!next); // rollback on failure
+                        onToggle?.(!next); // rollback the count in the parent too
+                    }
+                });
+            }}
+        >
+            <input type="hidden" name="targetId" value={targetId} />
+            <button
+                type="submit"
+                disabled={disabled || isPending}
+                className={[
+                    "rounded-lg px-3 py-2 text-sm transition",
+                    following
+                        ? "bg-neutral-700 hover:bg-neutral-600"
+                        : "bg-amber-500 hover:bg-amber-400 text-black font-medium",
+                    isPending ? "opacity-70 cursor-wait" : "",
+                ].join(" ")}
+                aria-pressed={following}
+            >
+                {label}
+            </button>
+        </form>
+    );
 }

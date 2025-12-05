@@ -1,60 +1,29 @@
-// FILE: app/u/[username]/daily/page.tsx
-import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import DailyEventsLive from '@/components/DailyEventsLive'
-import NewDailyHypeButton from '@/components/NewDailyHypeButton'
+// app/u/[username]/daily/page.tsx
+import ProfileHeaderGlobal from '@/components/ProfileHeaderGlobal'
 
-export default async function DailyPage({
-  params,
-}: {
-  params: Promise<{ username?: string }>
-}) {
-  const { username } = await params
-  const handle = username?.replace('@', '') || null
-  if (!handle) notFound()
+interface Props {
+  params: { username: string }
+}
 
-  const supabase = await createClient()
-
-  // Owner profile
-  const { data: owner } = await supabase
-    .from('users')
-    .select('id, username, display_name')
-    .eq('username', handle)
-    .maybeSingle()
-  if (!owner) notFound()
-
-  // Viewer (to decide isOwn)
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser()
-  const isOwn = viewer?.id === owner.id
-
-  // Initial events (include visibility)
-  const { data: events } = await supabase
-    .from('daily_events')
-    .select('id, title, type, event_at, visibility, created_at')
-    .eq('user_id', owner.id)
-    .order('event_at', { ascending: true })
+export default async function UserDailyPage({ params }: Props) {
+  const { username } = params
 
   return (
-    <div className="min-h-screen bg-[color:var(--brand-dark)]">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header row */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            {owner.display_name || owner.username} — Daily Hype
-          </h1>
-          {isOwn && <NewDailyHypeButton userId={owner.id} />}
-        </div>
+    <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
+      <ProfileHeaderGlobal />
 
-        <div className="mt-6">
-          <DailyEventsLive
-            initialEvents={events ?? []}
-            username={owner.username}
-            isOwn={isOwn}
-          />
+      {/* ===== Daily hype content for this user ===== */}
+      <section className="space-y-4">
+        <h1 className="text-2xl font-semibold tracking-tight">{username}&apos;s Daily Hype</h1>
+        <p className="text-sm text-muted-foreground">
+          Create and view daily hype entries.
+        </p>
+
+        {/* Replace with your actual daily composer / list */}
+        <div className="rounded-xl border border-white/10 p-6">
+          <p className="text-sm text-muted-foreground">TODO: daily composer and entries list.</p>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

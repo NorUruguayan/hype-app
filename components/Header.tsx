@@ -1,97 +1,269 @@
-// FILE: components/Header.tsx
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+// components/Header.tsx
+"use client";
 
-function Logo() {
-  return (
-    <Link href="/" className="flex items-center gap-2">
-      <div className="h-8 w-8 rounded-lg brand-gradient flex items-center justify-center text-white font-extrabold">H</div>
-      <span className="font-semibold text-white/90">HYPE</span>
-    </Link>
-  )
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import TopBarNotifications from "@/components/TopBarNotifications.client";
+import {
+  IconCompass,
+  IconDoor,
+  IconGear,
+  IconPlus,
+  IconSparkles,
+} from "@/components/icons";
+
+type AvatarState = { initial: string; avatarUrl?: string };
+
+function initialFrom(name?: string | null, email?: string | null) {
+  const n = (name ?? "").trim();
+  if (n) return n[0]!.toUpperCase();
+  const e = (email ?? "").trim();
+  if (e) return e[0]!.toUpperCase();
+  return "•";
 }
 
-export default async function Header() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+// Simple inline Home icon (no extra imports)
+function IconHome(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" width={16} height={16} {...props}>
+      <path
+        d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-  // Try to get username for profile link
-  let username: string | null = null
-  if (user?.id) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('username, display_name')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    username = data?.username ?? null
-  }
+export default function Header() {
+  const [open, setOpen] = useState(false);
+  const [avatar, setAvatar] = useState<AvatarState>({ initial: "•" });
+
+  const pathname = usePathname();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Load avatar/name (no need to fetch username now that we removed "Your profile")
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAvatar({ initial: "•" });
+        return;
+      }
+
+      const meta = (user.user_metadata ?? {}) as Record<string, any>;
+      const displayName =
+        meta.name ??
+        meta.full_name ??
+        meta.fullName ??
+        meta.given_name ??
+        meta.user_name ??
+        "";
+
+      setAvatar({
+        initial: initialFrom(displayName, user.email ?? meta.email),
+        avatarUrl: (meta.avatar_url ?? meta.picture ?? "") || undefined,
+      });
+    }
+
+    load();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => load());
+    return () => sub?.subscription?.unsubscribe();
+  }, []);
+
+  // Close menu on navigation
+  useEffect(() => setOpen(false), [pathname]);
+
+  // Close on outside click / Esc
+  useEffect(() => {
+    if (!open) return;
+    const onDocPointer = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (menuRef.current?.contains(t)) return;
+      if (btnRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-white/10 bg-[color:var(--brand-dark)]/80 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Logo />
+    <header className="sticky top-0 z-40">
+      {/* Stripes + dynamic tint */}
+      <div className="header-stripe absolute inset-0 h-14 pointer-events-none" />
+      <div
+        aria-hidden
+        className="absolute inset-0 h-14 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(180deg, color-mix(in oklab, var(--brand-1) 6%, transparent), transparent)",
+          backdropFilter: "saturate(1.05) blur(6px)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute bottom-0 left-0 right-0 h-[2px] pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(90deg, var(--brand-1), var(--brand-2), var(--brand-3))",
+          boxShadow:
+            "0 8px 22px color-mix(in oklab, var(--brand-2) 35%, #000 65%)",
+          opacity: 0.8,
+        }}
+      />
 
-        {/* center nav */}
-        <nav className="hidden gap-6 md:flex">
-          <Link href="/" className="text-white/80 hover:text-white transition">Feed</Link>
-          <Link href="/discover" className="text-white/80 hover:text-white transition">Discover</Link>
-          <Link href="/invite" className="text-white/80 hover:text-white transition">Invite</Link>
-        </nav>
+      <div className="app-container h-14 relative flex items-center justify-between">
+        {/* Brand */}
+        <Link
+          href="/"
+          className="no-tap-highlight inline-flex items-center gap-2 rounded-lg px-2 py-1 brand-press"
+          aria-label="HYPED home"
+        >
+          <span
+            aria-hidden
+            className="inline-block h-3 w-3 rounded-[2px] brand-gradient"
+          />
+          <span className="text-sm font-semibold tracking-wide">HYPED</span>
+        </Link>
 
-        {/* right side auth */}
-        <div className="flex items-center gap-3">
-          {!user ? (
-            <>
-              <Link
-                href="/login"
-                className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-white/90 hover:bg-white/10"
+        {/* Right actions */}
+        <nav className="flex items-center gap-2">
+          <TopBarNotifications />
+
+          <Link
+            href="/daily"
+            className="btn-cta no-tap-highlight h-8 px-3 text-[13px] rounded-xl inline-flex items-center justify-center font-medium"
+            aria-label="New Daily Hype"
+            title="New Daily Hype"
+          >
+            <IconPlus width={16} height={16} className="mr-1" />
+            New Daily Hype
+          </Link>
+
+          {/* Avatar / menu */}
+          <div className="relative">
+            <button
+              ref={btnRef}
+              type="button"
+              className="no-tap-highlight grid h-8 w-8 place-items-center rounded-full overflow-hidden"
+              style={{
+                background: "var(--chip-bg)",
+                boxShadow: "0 0 0 1px var(--chip-ring) inset",
+                color: "var(--ink-2)",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              aria-controls="user-menu"
+              onClick={() => setOpen((v) => !v)}
+              title="Account"
+            >
+              {avatar.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatar.avatarUrl}
+                  alt="User"
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span aria-hidden>{avatar.initial}</span>
+              )}
+            </button>
+
+            {open && (
+              <div
+                ref={menuRef}
+                id="user-menu"
+                role="menu"
+                aria-label="User menu"
+                className="menu-surface absolute right-0 mt-2 w-56 z-50"
               >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-full px-3 py-1.5 font-semibold text-white shadow-brand brand-gradient"
-              >
-                Get Started
-              </Link>
-            </>
-          ) : (
-            <div className="relative group">
-              <button
-                className="h-9 w-9 rounded-full brand-gradient text-white font-bold"
-                aria-haspopup="menu"
-                aria-expanded="false"
-              >
-                {(username?.[0] ?? 'U').toUpperCase()}
-              </button>
-              <div className="pointer-events-none absolute right-0 mt-2 w-44 translate-y-1 rounded-xl border border-white/10 bg-[color:var(--brand-dark)] p-1 opacity-0 shadow-xl transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                {/* Feed */}
                 <Link
-                  href={username ? `/@${username}` : '/'}
-                  className="block rounded-lg px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+                  href="/feed"
+                  role="menuitem"
+                  className="menu-item flex items-center gap-2"
                 >
-                  Profile
+                  <IconHome className="opacity-90" />
+                  Feed
                 </Link>
+
+                {/* Discover */}
                 <Link
-                  href={username ? `/u/${username}/daily` : '/'}
-                  className="block rounded-lg px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+                  href="/discover"
+                  role="menuitem"
+                  className="menu-item flex items-center gap-2"
                 >
-                  Daily Hype
+                  <IconCompass width={16} height={16} className="opacity-90" />
+                  Discover
                 </Link>
+
+                {/* Invite */}
+                <Link
+                  href="/invite"
+                  role="menuitem"
+                  className="menu-item flex items-center gap-2"
+                >
+                  <IconSparkles width={16} height={16} className="opacity-90" />
+                  Invite friends
+                </Link>
+
+                {/* Settings */}
+                <Link
+                  href="/settings"
+                  role="menuitem"
+                  className="menu-item flex items-center gap-2"
+                >
+                  <IconGear width={16} height={16} className="opacity-90" />
+                  Settings
+                </Link>
+
+                <div className="divider my-1" />
+
+                {/* New Daily Hype (prominent) */}
+                <Link
+                  href="/daily"
+                  role="menuitem"
+                  className="menu-item flex items-center gap-2 font-semibold"
+                >
+                  <IconPlus width={16} height={16} className="opacity-90" />
+                  New Daily Hype
+                </Link>
+
+                {/* Sign out */}
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+                    className="menu-item flex items-center gap-2 text-red-300 w-full"
                   >
-                    Logout
+                    <IconDoor width={16} height={16} className="opacity-90" />
+                    Sign out
                   </button>
                 </form>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </nav>
       </div>
     </header>
-  )
+  );
 }
